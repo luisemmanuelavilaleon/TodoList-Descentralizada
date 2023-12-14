@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Tareas</title>
+    <link rel="shortcut icon" type="image/x-icon" href="seleccionar-todo.png"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+</head>
+
+<body class="container mt-5">
+    <h1 class="mb-4">Lista de tareas descentralizadas</h1>
+    
+    <div class="mb-3">
+        <label for="taskContent" class="form-label">Tarea:</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="taskContent">
+            <button id="createTaskButton" class="btn btn-primary">Añadir Tarea</button>
+        </div>
+    </div>
+    
+    <div class="mb-3">
+        <p id="accountAddress">Dirección de cuenta: Cargando...</p>
+    </div>
+    
+    <div class="mb-3">
+        <p id="accountBalance">Saldo de Ether: Cargando...</p>
+    </div>
+    
+    <div id="taskList" class="mb-4"></div>
+    
+    <script type="module">
+        const contractAddress = "0xd5dfbe1c180ea596CA6B82629CC1d9B678D7e5ca";
+        import json from './build/contracts/TodoList.json' assert {type: 'json'};
+        console.log(json);
+        
+        let web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:7545"));
+        let todoListContract = new web3.eth.Contract(json.abi, contractAddress);
+        
+        async function createTask() {
+            const taskContent = document.getElementById("taskContent").value;
+            console.log(taskContent);
+            
+            let accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            let account = accounts[0];
+            
+            await todoListContract.methods.createTask(taskContent).send({ from: account, gas: 2000000 });
+            location.reload();
+            displayTasks();
+            
+        }
+        
+        async function completeTask(taskId) {
+            let accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            let account = accounts[0];
+            
+            await todoListContract.methods.completeTask(taskId).send({ from: account, gas: 2000000 });
+            location.reload();
+            displayTasks();
+        }
+        
+        async function displayTasks() {
+            const taskListDiv = document.getElementById("taskList");
+            taskListDiv.innerHTML = "";
+            
+            const taskCount = await todoListContract.methods.taskCount().call();
+            
+            for (let i = 1; i <= taskCount; i++) {
+                const task = await todoListContract.methods.tasks(i).call();
+                
+                const taskElement = document.createElement("div");
+                taskElement.className = "mb-3";
+                
+                const contentElement = document.createElement("p");
+                contentElement.className = task.completed ? "text-decoration-line-through" : "";
+                contentElement.innerText = task.content;
+                
+                const button = document.createElement("button");
+                button.className = "btn btn-success";
+                button.innerText = "Completar tarea";
+                button.addEventListener("click", () => completeTask(i));
+                button.disabled = task.completed;
+                
+                taskElement.appendChild(contentElement);
+                taskElement.appendChild(button);
+                
+                taskListDiv.appendChild(taskElement);
+            }
+        }
+        
+        async function displayAccountBalance() {
+            let accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            let account = accounts[0];
+            
+            let balance = await web3.eth.getBalance(account);
+            balance = web3.utils.fromWei(balance, 'ether');
+            
+            document.getElementById('accountBalance').innerText = `Saldo de Ether: ${balance} ETH`;
+            document.getElementById('accountAddress').innerText = `Dirección de cuenta: ${account}`;
+        }
+        
+        
+        document.getElementById("createTaskButton").addEventListener("click", createTask);
+        
+        displayTasks();
+        displayAccountBalance();
+    </script>
+</body>
+</html>
